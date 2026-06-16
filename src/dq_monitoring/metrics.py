@@ -7,6 +7,10 @@ import pandas as pd
 
 from dq_monitoring.generator import GeneratedBatch
 
+CRITICAL_COLUMNS = ("external_record_id", "event_ts", "customer_id")
+MEASURED_COLUMNS = (*CRITICAL_COLUMNS, "amount", "status")
+MISSING_FRESHNESS_LAG_MINUTES = 99999.0
+
 
 @dataclass(frozen=True)
 class QualityMetrics:
@@ -25,7 +29,11 @@ class QualityMetrics:
         return pd.DataFrame([self.__dict__])
 
 
-def calculate_metrics(source: pd.Series, batch_date: object, batch: GeneratedBatch) -> QualityMetrics:
+def calculate_metrics(
+    source: pd.Series,
+    batch_date: object,
+    batch: GeneratedBatch,
+) -> QualityMetrics:
     records = batch.records
     total_records = len(records)
 
@@ -33,24 +41,12 @@ def calculate_metrics(source: pd.Series, batch_date: object, batch: GeneratedBat
         completeness_rate = 0.0
         null_rate = 1.0
         duplicate_rate = 0.0
-        freshness_lag_minutes = 99999.0
+        freshness_lag_minutes = MISSING_FRESHNESS_LAG_MINUTES
     else:
-        critical_columns = ["external_record_id", "event_ts", "customer_id"]
-        observed_cells = total_records * len(critical_columns)
-        missing_critical = int(records[critical_columns].isna().sum().sum())
-        completeness_rate = 1.0 - (missing_critical / observed_cells)
-
-        measured_columns = ["external_record_id", "event_ts", "customer_id", "amount", "status"]
-        null_rate = float(records[measured_columns].isna().sum().sum() / (total_records * len(measured_columns)))
-
+        completeness_rate = _completeness_rate(records, total_records)
+        null_rate = _null_rate(records, total_records)
         duplicate_rate = float(records["external_record_id"].duplicated().sum() / total_records)
-
-        event_ts = pd.to_datetime(records["event_ts"], utc=True, errors="coerce").dropna()
-        if event_ts.empty:
-            freshness_lag_minutes = 99999.0
-        else:
-            max_event_ts: datetime = event_ts.max().to_pydatetime()
-            freshness_lag_minutes = (batch.received_at - max_event_ts).total_seconds() / 60
+        freshness_lag_minutes = _freshness_lag_minutes(records, batch.received_at)
 
     expected_records = int(source.expected_daily_records)
     record_count_delta = (total_records - expected_records) / expected_records
@@ -67,3 +63,24 @@ def calculate_metrics(source: pd.Series, batch_date: object, batch: GeneratedBat
         failed_jobs_count=1 if batch.job_status == "failed" else 0,
         total_records=total_records,
     )
+
+
+def _completeness_rate(records: pd.DataFrame, total_records: int) -> float:
+    observed_cells = total_records * len(CRITICAL_COLUMNS)
+    missing_critical = int(records[list(CRITICAL_COLUMNS)].isna().sum().sum())
+    return 1.0 - (missing_critical / observed_cells)
+
+
+def _null_rate(records: pd.DataFrame, total_records: int) -> float:
+    measured_cells = total_records * len(MEASURED_COLUMNS)
+    missing_measured = int(records[list(MEASURED_COLUMNS)].isna().sum().sum())
+    return missing_measured / measured_cells
+
+
+def _freshness_lag_minutes(records: pd.DataFrame, received_at: datetime) -> float:
+    event_ts = pd.to_datetime(records["event_ts"], utc=True, errors="coerce").dropna()
+    if event_ts.empty:
+        return MISSING_FRESHNESS_LAG_MINUTES
+
+    max_event_ts: datetime = event_ts.max().to_pydatetime()
+    return (received_at - max_event_ts).total_seconds() / 60

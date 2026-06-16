@@ -1,28 +1,48 @@
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
+from typing import Literal
 
 import pandas as pd
 
 from dq_monitoring.metrics import QualityMetrics
 
+ThresholdDirection = Literal["above", "below"]
+
+
+@dataclass(frozen=True)
+class MetricCheck:
+    metric_name: str
+    threshold_key: str
+    direction: ThresholdDirection
+    use_abs: bool = False
+
+
+METRIC_CHECKS = (
+    MetricCheck("completeness_rate", "completeness_rate_min", "below"),
+    MetricCheck("freshness_lag_minutes", "freshness_lag_minutes_max", "above"),
+    MetricCheck("duplicate_rate", "duplicate_rate_max", "above"),
+    MetricCheck("null_rate", "null_rate_max", "above"),
+    MetricCheck("record_count_delta", "record_count_delta_abs_max", "above", use_abs=True),
+)
+
 
 def _severity_for_numeric(
     *,
-    metric_name: str,
+    threshold_key: str,
     metric_value: float,
     thresholds: dict,
-    lower_is_bad: bool = False,
+    direction: ThresholdDirection,
     use_abs: bool = False,
 ) -> tuple[str | None, float | None]:
     warning = thresholds["severity"]["warning"]
     critical = thresholds["severity"]["critical"]
 
     value = abs(metric_value) if use_abs else metric_value
-    warning_threshold = float(warning[metric_name])
-    critical_threshold = float(critical[metric_name])
+    warning_threshold = float(warning[threshold_key])
+    critical_threshold = float(critical[threshold_key])
 
-    if lower_is_bad:
+    if direction == "below":
         if value < critical_threshold:
             return "critical", critical_threshold
         if value < warning_threshold:
@@ -38,37 +58,23 @@ def _severity_for_numeric(
 
 def build_incidents(source: pd.Series, metrics: QualityMetrics, thresholds: dict) -> pd.DataFrame:
     metric_values = asdict(metrics)
-    checks = [
-        ("completeness_rate", True, False),
-        ("freshness_lag_minutes", False, False),
-        ("duplicate_rate", False, False),
-        ("null_rate", False, False),
-        ("record_count_delta", False, True),
-    ]
-
     incidents: list[dict] = []
-    for metric_name, lower_is_bad, use_abs in checks:
-        threshold_key = (
-            f"{metric_name}_min"
-            if metric_name == "completeness_rate"
-            else f"{metric_name}_abs_max"
-            if metric_name == "record_count_delta"
-            else f"{metric_name}_max"
-        )
+    for check in METRIC_CHECKS:
+        metric_value = float(metric_values[check.metric_name])
         severity, threshold_value = _severity_for_numeric(
-            metric_name=threshold_key,
-            metric_value=float(metric_values[metric_name]),
+            threshold_key=check.threshold_key,
+            metric_value=metric_value,
             thresholds=thresholds,
-            lower_is_bad=lower_is_bad,
-            use_abs=use_abs,
+            direction=check.direction,
+            use_abs=check.use_abs,
         )
         if severity:
             incidents.append(
                 _incident_row(
                     source=source,
                     metrics=metrics,
-                    metric_name=metric_name,
-                    metric_value=float(metric_values[metric_name]),
+                    metric_name=check.metric_name,
+                    metric_value=metric_value,
                     threshold_value=threshold_value,
                     severity=severity,
                 )
