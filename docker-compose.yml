@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dq_postgres
+    environment:
+      POSTGRES_DB: dq_monitoring
+      POSTGRES_USER: dq_user
+      POSTGRES_PASSWORD: dq_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ./sql/002_views.sql:/docker-entrypoint-initdb.d/002_views.sql:ro
+      - ./sql/003_seed_sources.sql:/docker-entrypoint-initdb.d/003_seed_sources.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dq_user -d dq_monitoring"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: dq_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  grafana_data:

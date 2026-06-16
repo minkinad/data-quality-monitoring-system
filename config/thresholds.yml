@@ -1,0 +1,21 @@
+global:
+  completeness_rate_min: 0.95
+  freshness_lag_minutes_max: 180
+  duplicate_rate_max: 0.02
+  null_rate_max: 0.03
+  record_count_delta_abs_max: 0.35
+  failed_jobs_count_max: 0
+
+severity:
+  critical:
+    completeness_rate_min: 0.85
+    freshness_lag_minutes_max: 720
+    duplicate_rate_max: 0.10
+    null_rate_max: 0.15
+    record_count_delta_abs_max: 0.70
+  warning:
+    completeness_rate_min: 0.95
+    freshness_lag_minutes_max: 180
+    duplicate_rate_max: 0.02
+    null_rate_max: 0.03
+    record_count_delta_abs_max: 0.35
