@@ -35,6 +35,20 @@ services:
       postgres:
         condition: service_healthy
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dq_streamlit
+    environment:
+      DATABASE_URL: postgresql+psycopg://dq_user:dq_password@postgres:5432/dq_monitoring
+      DQ_ENV: docker
+    ports:
+      - "8501:8501"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   grafana_data:

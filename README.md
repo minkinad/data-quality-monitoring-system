@@ -1,5 +1,12 @@
 # Data Quality Monitoring System
 
+[![CI](https://github.com/minkinad/data-quality-monitoring-system/actions/workflows/ci.yml/badge.svg)](https://github.com/minkinad/data-quality-monitoring-system/actions/workflows/ci.yml)
+[![CD](https://github.com/minkinad/data-quality-monitoring-system/actions/workflows/cd.yml/badge.svg)](https://github.com/minkinad/data-quality-monitoring-system/actions/workflows/cd.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-dashboard-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+
 Production-style demo project for monitoring quality of data received from external sources.
 
 The system simulates daily ingestion from multiple sources, validates batches, calculates data quality metrics, creates incidents when thresholds are breached, and exposes a Streamlit dashboard plus Grafana provisioning.
@@ -104,6 +111,27 @@ Services:
 
 Default Grafana credentials are `admin` / `admin`.
 
+## CI/CD
+
+GitHub Actions workflows live in `.github/workflows`.
+
+- `CI`: runs on pull requests and pushes to `main`; checks Ruff linting, unit tests, Grafana JSON validity, Docker Compose config, and a PostgreSQL smoke test.
+- `CD`: runs after a successful `CI` workflow on `main` and on manual dispatch; builds the Streamlit Docker image and publishes it to GitHub Container Registry.
+
+Published image:
+
+```text
+ghcr.io/<owner>/data-quality-monitoring-system:<git-sha>
+ghcr.io/<owner>/data-quality-monitoring-system:latest
+```
+
+Local Docker build:
+
+```bash
+docker compose build dashboard
+docker compose up -d postgres dashboard grafana
+```
+
 ## Analyst Workflow
 
 The project is designed around practical Technical Data Analyst work:
@@ -153,4 +181,3 @@ pytest
 ```
 
 The tests focus on metric calculation and incident classification logic.
-
