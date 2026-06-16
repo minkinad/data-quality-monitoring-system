@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from os import getenv
 from pathlib import Path
 from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-from os import getenv
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

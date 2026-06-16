@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pandas as pd
 
@@ -22,10 +22,10 @@ def test_calculate_metrics_detects_duplicates_nulls_and_schema_drift() -> None:
         {
             "external_record_id": ["a", "a", "c", None],
             "event_ts": [
-                datetime(2026, 1, 1, 10, tzinfo=timezone.utc),
-                datetime(2026, 1, 1, 11, tzinfo=timezone.utc),
+                datetime(2026, 1, 1, 10, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, tzinfo=UTC),
                 None,
-                datetime(2026, 1, 1, 12, tzinfo=timezone.utc),
+                datetime(2026, 1, 1, 12, tzinfo=UTC),
             ],
             "customer_id": ["c1", "c2", "c3", "c4"],
             "amount": [10.0, 20.0, None, 40.0],
@@ -35,7 +35,7 @@ def test_calculate_metrics_detects_duplicates_nulls_and_schema_drift() -> None:
     )
     batch = GeneratedBatch(
         records=records,
-        received_at=datetime(2026, 1, 1, 13, tzinfo=timezone.utc),
+        received_at=datetime(2026, 1, 1, 13, tzinfo=UTC),
         schema_version="v2",
         schema_hash=EXPECTED_SCHEMA_HASH + "|unexpected",
         expected_schema_hash=EXPECTED_SCHEMA_HASH,

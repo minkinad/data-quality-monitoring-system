@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 
 import pandas as pd
 from sqlalchemy import Engine, text
@@ -46,7 +46,7 @@ def run_pipeline(engine: Engine, *, start_date: date, days: int) -> dict[str, in
 
 
 def _upsert_job(engine: Engine, source: pd.Series, batch_date: date, batch) -> int:
-    started_at = datetime.combine(batch_date + timedelta(days=1), time(hour=6), tzinfo=timezone.utc)
+    started_at = datetime.combine(batch_date + timedelta(days=1), time(hour=6), tzinfo=UTC)
     with engine.begin() as conn:
         return int(
             conn.execute(
@@ -95,7 +95,12 @@ def _upsert_job(engine: Engine, source: pd.Series, batch_date: date, batch) -> i
 def _insert_batch(engine: Engine, source: pd.Series, batch_date: date, job_id: int, batch) -> int:
     with engine.begin() as conn:
         conn.execute(
-            text("delete from raw_batches where source_id = :source_id and batch_date = :batch_date"),
+            text(
+                """
+                delete from raw_batches
+                where source_id = :source_id and batch_date = :batch_date
+                """
+            ),
             {"source_id": int(source.source_id), "batch_date": batch_date},
         )
         return int(
@@ -139,7 +144,12 @@ def _insert_batch(engine: Engine, source: pd.Series, batch_date: date, job_id: i
         )
 
 
-def _insert_records(engine: Engine, source: pd.Series, batch_id: int, records: pd.DataFrame) -> None:
+def _insert_records(
+    engine: Engine,
+    source: pd.Series,
+    batch_id: int,
+    records: pd.DataFrame,
+) -> None:
     rows = records.copy()
     rows.insert(0, "source_id", int(source.source_id))
     rows.insert(0, "batch_id", batch_id)

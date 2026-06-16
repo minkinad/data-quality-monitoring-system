@@ -10,7 +10,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from dq_monitoring.db import fetch_dataframe, get_engine  # noqa: E402
 
-
 st.set_page_config(page_title="Data Quality Monitoring", page_icon=":bar_chart:", layout="wide")
 
 

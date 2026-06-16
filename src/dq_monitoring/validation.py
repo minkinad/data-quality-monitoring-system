@@ -4,7 +4,6 @@ import pandas as pd
 import pandera as pa
 from pandera import Column, DataFrameSchema
 
-
 RAW_RECORD_SCHEMA = DataFrameSchema(
     {
         "external_record_id": Column(str, nullable=True),

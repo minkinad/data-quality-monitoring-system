@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 import numpy as np
 import pandas as pd
-
 
 EXPECTED_SCHEMA_HASH = "external_record_id|event_ts|customer_id|amount|status|payload:v1"
 
@@ -56,7 +55,7 @@ def generate_batch(source: pd.Series, batch_date: date) -> GeneratedBatch:
     if profile["failed_job"]:
         row_count = int(row_count * 0.1)
 
-    base_event_time = datetime.combine(batch_date, time(hour=20), tzinfo=timezone.utc)
+    base_event_time = datetime.combine(batch_date, time(hour=20), tzinfo=UTC)
     event_offsets = rng.integers(0, 16 * 60, size=row_count)
     event_ts = [base_event_time - timedelta(minutes=int(offset)) for offset in event_offsets]
 
@@ -71,7 +70,11 @@ def generate_batch(source: pd.Series, batch_date: date) -> GeneratedBatch:
 
     customer_ids = [f"cust-{rng.integers(10000, 99999)}" for _ in range(row_count)]
     amount = np.round(rng.gamma(shape=2.2, scale=45.0, size=row_count), 2)
-    statuses = rng.choice(["new", "processed", "cancelled", "refunded"], size=row_count, p=[0.2, 0.65, 0.1, 0.05])
+    statuses = rng.choice(
+        ["new", "processed", "cancelled", "refunded"],
+        size=row_count,
+        p=[0.2, 0.65, 0.1, 0.05],
+    )
 
     null_probability = 0.11 if profile["null_spike"] else 0.012
     records = pd.DataFrame(
@@ -103,8 +106,16 @@ def generate_batch(source: pd.Series, batch_date: date) -> GeneratedBatch:
     records["payload"] = payloads
 
     received_hour = 7
-    delay_minutes = int(rng.integers(220, 900)) if profile["late_delivery"] else int(rng.integers(15, 115))
-    received_at = datetime.combine(batch_date + timedelta(days=1), time(hour=received_hour), tzinfo=timezone.utc)
+    delay_minutes = (
+        int(rng.integers(220, 900))
+        if profile["late_delivery"]
+        else int(rng.integers(15, 115))
+    )
+    received_at = datetime.combine(
+        batch_date + timedelta(days=1),
+        time(hour=received_hour),
+        tzinfo=UTC,
+    )
     received_at = received_at + timedelta(minutes=delay_minutes)
 
     schema_version = "v2_partner_changed" if profile["schema_drift"] else "v1"
@@ -121,5 +132,7 @@ def generate_batch(source: pd.Series, batch_date: date) -> GeneratedBatch:
         schema_hash=schema_hash,
         expected_schema_hash=EXPECTED_SCHEMA_HASH,
         job_status="failed" if profile["failed_job"] else "success",
-        error_message="Upstream extraction finished with partial payload" if profile["failed_job"] else None,
+        error_message=(
+            "Upstream extraction finished with partial payload" if profile["failed_job"] else None
+        ),
     )
