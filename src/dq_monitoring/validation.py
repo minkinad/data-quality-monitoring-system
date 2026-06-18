@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pandas as pd
-import pandera as pa
-from pandera import Column, DataFrameSchema
+import pandera.pandas as pa
+from pandera.pandas import Column, DataFrameSchema
 
 RAW_RECORD_SCHEMA = DataFrameSchema(
     {

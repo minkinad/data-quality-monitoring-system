@@ -45,10 +45,12 @@ def calculate_metrics(
     else:
         completeness_rate = _completeness_rate(records, total_records)
         null_rate = _null_rate(records, total_records)
-        duplicate_rate = float(records["external_record_id"].duplicated().sum() / total_records)
+        duplicate_rate = _duplicate_rate(records, total_records)
         freshness_lag_minutes = _freshness_lag_minutes(records, batch.received_at)
 
     expected_records = int(source.expected_daily_records)
+    if expected_records <= 0:
+        raise ValueError("expected_daily_records must be greater than 0")
     record_count_delta = (total_records - expected_records) / expected_records
 
     return QualityMetrics(
@@ -77,10 +79,18 @@ def _null_rate(records: pd.DataFrame, total_records: int) -> float:
     return missing_measured / measured_cells
 
 
+def _duplicate_rate(records: pd.DataFrame, total_records: int) -> float:
+    external_ids = records["external_record_id"].dropna()
+    if external_ids.empty:
+        return 0.0
+
+    return float(external_ids.duplicated().sum() / total_records)
+
+
 def _freshness_lag_minutes(records: pd.DataFrame, received_at: datetime) -> float:
     event_ts = pd.to_datetime(records["event_ts"], utc=True, errors="coerce").dropna()
     if event_ts.empty:
         return MISSING_FRESHNESS_LAG_MINUTES
 
     max_event_ts: datetime = event_ts.max().to_pydatetime()
-    return (received_at - max_event_ts).total_seconds() / 60
+    return max(0.0, (received_at - max_event_ts).total_seconds() / 60)

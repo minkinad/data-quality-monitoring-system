@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
+import pytest
 
 from dq_monitoring.generator import EXPECTED_SCHEMA_HASH, GeneratedBatch
 from dq_monitoring.metrics import calculate_metrics
@@ -53,3 +54,72 @@ def test_calculate_metrics_detects_duplicates_nulls_and_schema_drift() -> None:
     assert metrics.freshness_lag_minutes == 60.0
     assert metrics.completeness_rate < 1.0
     assert metrics.null_rate > 0.0
+
+
+def test_calculate_metrics_ignores_missing_external_ids_when_counting_duplicates() -> None:
+    source = pd.Series(
+        {
+            "source_id": 1,
+            "source_name": "crm_accounts_api",
+            "source_type": "api",
+            "domain": "sales",
+            "expected_daily_records": 3,
+        }
+    )
+    received_at = datetime(2026, 1, 1, 13, tzinfo=UTC)
+    records = pd.DataFrame(
+        {
+            "external_record_id": [None, None, "record-1"],
+            "event_ts": [received_at - timedelta(minutes=5)] * 3,
+            "customer_id": ["c1", "c2", "c3"],
+            "amount": [10.0, 20.0, 30.0],
+            "status": ["new", "processed", "processed"],
+            "payload": [{}, {}, {}],
+        }
+    )
+    batch = GeneratedBatch(
+        records=records,
+        received_at=received_at,
+        schema_version="v1",
+        schema_hash=EXPECTED_SCHEMA_HASH,
+        expected_schema_hash=EXPECTED_SCHEMA_HASH,
+        job_status="success",
+        error_message=None,
+    )
+
+    metrics = calculate_metrics(source, date(2026, 1, 1), batch)
+
+    assert metrics.duplicate_rate == 0.0
+
+
+def test_calculate_metrics_rejects_non_positive_expected_records() -> None:
+    source = pd.Series(
+        {
+            "source_id": 1,
+            "source_name": "crm_accounts_api",
+            "source_type": "api",
+            "domain": "sales",
+            "expected_daily_records": 0,
+        }
+    )
+    batch = GeneratedBatch(
+        records=pd.DataFrame(
+            {
+                "external_record_id": [],
+                "event_ts": [],
+                "customer_id": [],
+                "amount": [],
+                "status": [],
+                "payload": [],
+            }
+        ),
+        received_at=datetime(2026, 1, 1, 13, tzinfo=UTC),
+        schema_version="v1",
+        schema_hash=EXPECTED_SCHEMA_HASH,
+        expected_schema_hash=EXPECTED_SCHEMA_HASH,
+        job_status="success",
+        error_message=None,
+    )
+
+    with pytest.raises(ValueError, match="expected_daily_records"):
+        calculate_metrics(source, date(2026, 1, 1), batch)

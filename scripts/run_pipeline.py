@@ -12,9 +12,16 @@ from dq_monitoring.db import get_engine, reset_database  # noqa: E402
 from dq_monitoring.pipeline import run_pipeline  # noqa: E402
 
 
+def positive_int(value: str) -> int:
+    parsed_value = int(value)
+    if parsed_value < 1:
+        raise argparse.ArgumentTypeError("must be greater than or equal to 1")
+    return parsed_value
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run data quality monitoring demo pipeline")
-    parser.add_argument("--days", type=int, default=30, help="Number of days to generate")
+    parser.add_argument("--days", type=positive_int, default=30, help="Number of days to generate")
     parser.add_argument(
         "--start-date",
         type=date.fromisoformat,

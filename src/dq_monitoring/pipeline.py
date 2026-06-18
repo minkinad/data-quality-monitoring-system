@@ -15,6 +15,9 @@ from dq_monitoring.validation import validate_raw_records
 
 
 def run_pipeline(engine: Engine, *, start_date: date, days: int) -> dict[str, int]:
+    if days < 1:
+        raise ValueError("days must be greater than or equal to 1")
+
     thresholds = load_thresholds()
     sources = fetch_sources(engine)
     if sources.empty:
