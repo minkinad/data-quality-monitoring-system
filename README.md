@@ -48,6 +48,12 @@ SQL views: source status, daily quality, incident summary
         +---- Grafana dashboard
 ```
 
+## Screenshots
+
+![Streamlit dashboard overview](docs/images/streamlit-dashboard-overview.png)
+
+![Streamlit incidents table](docs/images/streamlit-dashboard-incidents.png)
+
 ## Repository Structure
 
 ```text
